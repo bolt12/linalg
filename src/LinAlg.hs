@@ -8,7 +8,7 @@ import qualified Prelude as P
 import Prelude hiding ((+),sum,(*),unzip)
 
 import GHC.Generics (Par1(..), (:*:)(..), (:.:)(..))
-import Control.Arrow ((***))
+import qualified Control.Arrow as A
 import Data.Distributive
 import Data.Functor.Rep
 
@@ -63,7 +63,7 @@ unjoin2 :: Additive s => L (f :*: g) h s -> L f h s :* L g h s
 unjoin2 Zero = (zero,zero)
 unjoin2 (p :|# q) = (p,q)
 unjoin2 ((unjoin2 -> (p,q)) :&# (unjoin2 -> (r,s))) = (p :& r, q :& s)
-unjoin2 (ForkL ms) = (ForkL *** ForkL) (unzip (unjoin2 <$> ms))
+unjoin2 (ForkL ms) = (ForkL A.*** ForkL) (unzip (unjoin2 <$> ms))
 
 -- unjoin2 ((p :| q) :&# (r :| s)) = (p :&# r, q :#& s)
 
@@ -83,7 +83,7 @@ unfork2 :: Additive s => L f (h :*: k) s -> L f h s :* L f k s
 unfork2 Zero = (zero,zero)
 unfork2 (p :&# q) = (p,q)
 unfork2 ((unfork2 -> (p,q)) :|# (unfork2 -> (r,s))) = (p :|# r, q :|# s)
-unfork2 (JoinL ms) = (JoinL *** JoinL) (unzip (unfork2 <$> ms))
+unfork2 (JoinL ms) = (JoinL A.*** JoinL) (unzip (unfork2 <$> ms))
 
 -- unfork2 ((p :& q) :|# (r :& s)) = (p :|# r, q :|# s)
 
@@ -171,8 +171,8 @@ Scale a   .@ Scale b   = Scale (a * b)             -- Scale denotation
 (p :&# q) .@ m         = (p .@ m) :&# (q .@ m)     -- binary product law
 m         .@ (p :|# q) = (m .@ p) :|# (m .@ q)     -- binary coproduct law
 (r :|# s) .@ (p :&# q) = (r .@ p) + (s .@ q)       -- biproduct law
-ForkL ms' .@ m         = ForkL (fmap (.@ m) ms')   -- n-ary product law
-m'        .@ JoinL ms  = JoinL (fmap (m' .@) ms)   -- n-ary coproduct law
+ForkL ms' .@ m         = ForkL ((.@ m) <$> ms')    -- n-ary product law
+m'        .@ JoinL ms  = JoinL ((m' .@) <$> ms)    -- n-ary coproduct law
 JoinL ms' .@ ForkL ms  = sum (liftR2 (.@) ms' ms)  -- biproduct law
 
 instance (V f, Semiring s) => Semiring (L (f :.: Par1) (f :.: Par1) s) where
@@ -182,3 +182,15 @@ instance (V f, Semiring s) => Semiring (L (f :.: Par1) (f :.: Par1) s) where
 -- Illegal nested constraint ‘Eq (Rep f)’
 -- (Use UndecidableInstances to permit this)
 
+-- Projections
+exl :: (V f, Semiring s) => L ((f :.: Par1) :*: g) (f :.: Par1) s 
+exl = idL :| zero
+
+exr :: (V g, Semiring s) => L (f :*: (g :.: Par1)) (g :.: Par1) s 
+exr = zero :| idL
+
+-- This (:.: Par1) requirement bothers me!
+
+-- infixr 3 ***
+-- (***) :: L f g s -> L h k s -> L (f :*: h) (g :*: k) s
+-- p *** q = (p .@ exl) :& (q .@ exr)
