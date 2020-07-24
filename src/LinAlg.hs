@@ -163,6 +163,14 @@ diagR as =
 idL :: (V f, Semiring s) => L (f :.: Par1) (f :.: Par1) s
 idL = rowMajor (diagR (pureRep one))
 
+-- The (:.: Par1) requirement in  bothers me!
+-- Note that f :.: Par1 =~ f (just as i :* () =~ i, in logarithm land).
+
+-- Note: unjoining idL yields injections, while unforking gives projections.
+
+-- TODO: simplify/restrict diagR & idL as Dan suggested
+-- (https://github.com/conal/linalg/pull/11#discussion_r460316931).
+
 infixr 9 .@
 (.@) :: Semiring s => L g h s -> L f g s -> L f h s
 Zero      .@ _         = Zero                      -- Zero denotation
@@ -188,8 +196,6 @@ exl = idL :| zero
 
 exr :: (V g, Semiring s) => L (f :*: (g :.: Par1)) (g :.: Par1) s 
 exr = zero :| idL
-
--- This (:.: Par1) requirement bothers me!
 
 -- infixr 3 ***
 -- (***) :: L f g s -> L h k s -> L (f :*: h) (g :*: k) s
