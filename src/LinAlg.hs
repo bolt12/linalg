@@ -153,8 +153,6 @@ instance Semiring s => Additive (L f g s) where
   ForkL ms  + Fork ms' = Fork (ms +^ ms')
   JoinL ms  + Join ms' = Join (ms +^ ms')
 
-#if 1
-
 idL :: Semiring s => L f f s
 idL = Scale one
 
@@ -181,42 +179,6 @@ ins = unjoinL idL
 -- Projections
 exs :: (Representable h, Semiring s) => h (L (h :.: f) f s)
 exs = unforkL idL
-
-#else
-
--- | Row-major "matrix" of linear maps
-rowMajor' :: (V2 f g, V2 h k) => k (h (L f g s)) -> L (h :.: f) (k :.: g) s
-rowMajor' = Fork . fmap Join
-
--- | Row-major "matrix" of scalars
-rowMajor :: (V f, V g) => g (f s) -> L (f :.: Par1) (g :.: Par1) s
-rowMajor = rowMajor' . (fmap.fmap) Scale
-
-diagR :: (Representable h, Eq (Rep h), Additive a) => h a -> h (h a)
-diagR as =
-  tabulate (\ i -> (tabulate (\ j -> if i == j then as `index` i else zero)))
-
-idL :: (V f, Semiring s) => L (f :.: Par1) (f :.: Par1) s
-idL = rowMajor (diagR (pureRep one))
-
--- The (:.: Par1) requirement in  bothers me!
--- Note that f :.: Par1 =~ f (just as i :* () =~ i, in logarithm land).
-
--- TODO: simplify/restrict diagR & idL as Dan suggested
--- (https://github.com/conal/linalg/pull/11#discussion_r460316931).
-
--- Projections
-exl :: (V f, Semiring s) => L ((f :.: Par1) :*: g) (f :.: Par1) s 
-exl = idL :| zero
-
-exr :: (V g, Semiring s) => L (f :*: (g :.: Par1)) (g :.: Par1) s 
-exr = zero :| idL
-
--- infixr 3 ***
--- (***) :: L f g s -> L h k s -> L (f :*: h) (g :*: k) s
--- p *** q = (p .@ exl) :& (q .@ exr)
-
-#endif
 
 infixr 9 .@
 (.@) :: Semiring s => L g h s -> L f g s -> L f h s
