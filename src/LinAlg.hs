@@ -225,16 +225,16 @@ _         .@ Zero      = Zero                      -- linearity
 Scale a   .@ Scale b   = Scale (a * b)             -- Scale denotation
 (p :&# q) .@ m         = (p .@ m) :&# (q .@ m)     -- binary product law
 m         .@ (p :|# q) = (m .@ p) :|# (m .@ q)     -- binary coproduct law
--- (r :|# s) .@ (p :&# q) = (r .@ p) + (s .@ q)       -- biproduct law
-
 (r :|# s) .@ (unfork2 -> (p,q)) = (r .@ p) + (s .@ q)       -- biproduct law
 
 ForkL ms' .@ m         = ForkL ((.@ m) <$> ms')    -- n-ary product law
 m'        .@ JoinL ms  = JoinL ((m' .@) <$> ms)    -- n-ary coproduct law
--- JoinL ms' .@ ForkL ms  = sum (liftR2 (.@) ms' ms)  -- biproduct law
-JoinL ms' .@ (unforkL -> ms)  = sum (liftR2 (.@) ms' ms)  -- biproduct law
+JoinL ms' .@ ForkL ms  = sum (liftR2 (.@) ms' ms)  -- biproduct law
 
--- (unjoin2 -> (r,s)) .@ (p :&# q) = undefined
+-- Patterns not matched:
+--     (Scale _) (_ :&# _)
+--     (Scale _) (ForkL _)
+--     (JoinL _) (Scale _)
 
 instance (V f, Semiring s) => Semiring (L (f :.: Par1) (f :.: Par1) s) where
   one = idL
