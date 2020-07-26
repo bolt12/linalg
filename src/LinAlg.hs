@@ -57,6 +57,16 @@ data L :: (* -> *) -> (* -> *) -> (* -> *) where
   JoinL :: V h => h (L f g s) -> L (h :.: f) g s
   ForkL :: V h => h (L f g s) -> L f (h :.: g) s
 
+instance Eq s => Eq (L f g s) where
+  Zero == Zero            = True
+  Zero == _               = False
+  _ == Zero               = False
+  (Scale s) == (Scale s') = s == s'
+  (f :|# g) == (h :| k)   = (f == h) && (g == k)
+  (f :&# g) == (h :& k)   = (f == h) && (g == k)
+  ForkL ms  == Fork ms'   = and $ liftR2 (==) ms ms'
+  JoinL ms  == Join ms'   = and $ liftR2 (==) ms ms'
+
 -- Scalable vectors
 class V a => HasScaleV a where
   scaleV :: Semiring s => s -> L a a s
@@ -71,8 +81,8 @@ instance (HasScaleV a, HasScaleV b) => HasScaleV (a :*: b) where
 instance (HasScaleV a, HasScaleV b, Representable b) => HasScaleV (b :.: a) where
   scaleV s = cross (pureRep (scaleV s))
 
-unjoin2 :: Additive s => L (f :*: g) h s -> L f h s :* L g h s
-unjoin2 Zero = (zero,zero)
+unjoin2 :: L (f :*: g) h s -> L f h s :* L g h s
+unjoin2 Zero = (Zero,Zero)
 unjoin2 (p :|# q) = (p,q)
 unjoin2 ((unjoin2 -> (p,q)) :&# (unjoin2 -> (r,s))) = (p :& r, q :& s)
 unjoin2 (ForkL ms) = (ForkL A.*** ForkL) (unzip (unjoin2 <$> ms))
@@ -91,19 +101,19 @@ unjoin2 (ForkL ms) = (ForkL A.*** ForkL) (unzip (unjoin2 <$> ms))
 (ForkL *** ForkL) (unzip (unjoin <$> ms)) :: L f (k :.: h) s :* L g (k :.: h) s
 #endif
 
-unfork2 :: Additive s => L f (h :*: k) s -> L f h s :* L f k s
-unfork2 Zero = (zero,zero)
+unfork2 :: L f (h :*: k) s -> L f h s :* L f k s
+unfork2 Zero = (Zero,Zero)
 unfork2 (p :&# q) = (p,q)
 unfork2 ((unfork2 -> (p,q)) :|# (unfork2 -> (r,s))) = (p :|# r, q :|# s)
 unfork2 (JoinL ms) = (JoinL A.*** JoinL) (unzip (unfork2 <$> ms))
 
 -- unfork2 ((p :& q) :|# (r :& s)) = (p :|# r, q :|# s)
 
-pattern (:&) :: Additive s => L f h s -> L f k s -> L f (h :*: k) s
+pattern (:&) :: L f h s -> L f k s -> L f (h :*: k) s
 pattern u :& v <- (unfork2 -> (u,v)) where (:&) = (:&#)
 {-# complete (:&) #-}
 
-pattern (:|) :: Additive s => L f h s -> L g h s -> L (f :*: g) h s
+pattern (:|) :: L f h s -> L g h s -> L (f :*: g) h s
 pattern u :| v <- (unjoin2 -> (u,v)) where (:|) = (:|#)
 {-# complete (:|) #-}
 
