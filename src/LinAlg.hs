@@ -1,3 +1,5 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 -- | Linear algebra after Fortran
 
 module LinAlg where
@@ -6,9 +8,12 @@ import qualified Prelude as P
 import Prelude hiding ((+),sum,(*),unzip)
 
 import GHC.Generics (Par1(..), (:*:)(..), (:.:)(..))
+import GHC.TypeLits
 import qualified Control.Arrow as A
 import Data.Distributive
 import Data.Functor.Rep
+import Data.Kind
+import Data.Type.Equality
 
 infixl 7 :*
 type (:*)  = (,)
@@ -66,6 +71,14 @@ instance Eq s => Eq (L f g s) where
   (f :&# g) == (h :& k)   = (f == h) && (g == k)
   ForkL ms  == Fork ms'   = and $ liftR2 (==) ms ms'
   JoinL ms  == Join ms'   = and $ liftR2 (==) ms ms'
+
+type family FromNat (n :: Nat) :: (Type -> Type) where
+  FromNat 1 = Par1
+  FromNat n = FromNat' (Mod n 2 == 0) (FromNat (Div n 2))
+
+type family FromNat' (b :: Bool) (m :: Type -> Type) :: (Type -> Type) where
+  FromNat' 'True m  = m :*: m
+  FromNat' 'False m = Par1 :*: (m :*: m)
 
 -- Scalable vectors
 class V a => HasScaleV a where
@@ -256,8 +269,8 @@ f *** g = (f :|# Zero) :&# (Zero :|# g)
 f +++ g = (f :|# Zero) :&# (Zero :|# g)
 
 -- N-ary biproduct bifunctor
-cross :: (V a, HasScaleV2 b c, Semiring s) => c (L a b s) -> L (c :.: a) (c :.: b) s
-cross fs = JoinL (ins .^ fs)
+cross :: (V c, Additive s) => c (L a b s) -> L (c :.: a) (c :.: b) s
+cross = JoinL . fmap ForkL . diagR -- JoinL (ins .^ fs)
 
 #if 0
 -- Equivalently,
@@ -271,8 +284,8 @@ f *** g = (f .@ exl) :&# (g .@ exr)
 f *** g = (inl .@ f) :|# (inr .@ g)
 
 -- Equivalently,
-cross :: (V a, HasScaleV2 a c, Semiring s) => c (L a b s) -> L (c :.: a) (c :.: b) s
-cross fs = ForkL (fs .^ exs)
+cross :: c (L a b s) -> L (c :.: a) (c :.: b) s
+cross = ForkL (fs .^ exs)
 #endif
 
 -- Khatri-Rao projections
