@@ -24,7 +24,7 @@ default-extensions:
   # - RankNTypes
   # - StandaloneDeriving
   # - TupleSections
-  # - TypeApplications
+  - TypeApplications
   # - TypeFamilies
   - TypeOperators
   # - UndecidableInstances
