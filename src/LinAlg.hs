@@ -62,10 +62,12 @@ data L :: (* -> *) -> (* -> *) -> (* -> *) where
   JoinL :: V h => h (L f g s) -> L (h :.: f) g s
   ForkL :: V h => h (L f g s) -> L f (h :.: g) s
 
-instance Eq s => Eq (L f g s) where
+instance (Eq s, Num s) => Eq (L f g s) where
   Zero == Zero            = True
   Zero == _               = False
   _ == Zero               = False
+  (Scale s) == Zero       = s == 0
+  Zero == (Scale s)       = s == 0
   (Scale s) == (Scale s') = s == s'
   (f :|# g) == (h :| k)   = (f == h) && (g == k)
   (f :&# g) == (h :& k)   = (f == h) && (g == k)
@@ -198,16 +200,16 @@ diagRep dflt as =
 idL :: (HasScaleV a, Semiring s) => L a a s
 idL = scaleV one
 
-class V a => Bang a where
-  bang :: Semiring s => L a Par1 s
+class V a => OnesV a where
+  onesV :: Semiring s => L a Par1 s
 
-instance Bang Par1 where bang = Scale one
+instance OnesV Par1 where onesV = Scale one
 
-instance (Bang a, Bang b) => Bang (a :*: b) where
-  bang = bang :|# bang
+instance (OnesV a, OnesV b) => OnesV (a :*: b) where
+  onesV = onesV :|# onesV
 
-instance (Bang a, Bang b) => Bang (a :.: b) where
-  bang = JoinL (pureRep bang)
+instance (OnesV a, OnesV b) => OnesV (a :.: b) where
+  onesV = JoinL (pureRep onesV)
 
 -- Matrix transpose
 tr :: L c r s -> L r c s
@@ -236,6 +238,17 @@ JoinL ms' .@ ForkL ms  = sum (ms' .^ ms)           -- biproduct law
 instance (HasScaleV f, Semiring s) => Semiring (L f f s) where
   one = idL
   (*) = (.@)
+
+-- Hadamard-Schur product
+(.*) :: Semiring s => L f g s -> L f g s -> L f g s
+Zero .* Zero            = Zero
+Zero .* _               = Zero
+_ .* Zero               = Zero
+(Scale s) .* (Scale s') = Scale (s * s')
+(f :|# g) .* (h :| k)   = (f .* h) :| (g .* k)
+(f :&# g) .* (h :& k)   = (f .* h) :& (g .* k)
+ForkL ms .* Fork ms'    = ForkL $ liftR2 (.*) ms ms'
+JoinL ms .* Join ms'    = JoinL $ liftR2 (.*) ms ms'
 
 -- Binary injections
 
@@ -290,14 +303,13 @@ cross fs == JoinL (ins .^ fs)
 
 -- Khatri-Rao projections
 
-fstM :: (Semiring s, HasScaleV m, V k, Bang k) => L (m :.: k) (m :.: Par1) s
-fstM = cross (pureRep bang)
+fstM :: (Semiring s, HasScaleV m, V k, OnesV k) => L (m :.: k) (m :.: Par1) s
+fstM = cross (pureRep onesV)
 
 sndM :: (Semiring s, HasScaleV k, V m) => L (m :.: k) k s
 sndM = JoinL (pureRep idL)
 
 -- Khatri Rao product (Matrix pairing)
 
-khatri :: (Semiring s, Semiring (L f (m :.: k) s), Bang k, HasScaleV2 m k)
-       => L f (m :.: Par1) s -> L f k s -> L f (m :.: k) s
-khatri a b = (tr fstM .@ a) * (tr sndM .@ b)
+khatri :: (Semiring s, OnesV k, HasScaleV2 m k) => L f (m :.: Par1) s -> L f k s -> L f (m :.: k) s
+khatri a b = (tr fstM .@ a) .* (tr sndM .@ b)
