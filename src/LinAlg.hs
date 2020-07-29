@@ -166,12 +166,8 @@ onesV :: (ToScalar a, Representable a, Semiring s) => L a Par1 s
 onesV = rowToL (pureRep one)
 
 -- Matrix transpose
-tr :: L c r s -> L r c s
-tr (Scale s) = Scale s
-tr (a :|# b) = tr a :&# tr b
-tr (a :&# b) = tr a :|# tr b
-tr (ForkL m) = JoinL (fmap tr m)
-tr (JoinL m) = ForkL (fmap tr m)
+tr :: (V2 c r, Additive s) => L c r s -> L r c s
+tr = rowMajToL . distributeRep . lToRowMaj
 
 infixr 9 .@
 (.@) :: (V3 f g h, Semiring s) => L g h s -> L f g s -> L f h s
