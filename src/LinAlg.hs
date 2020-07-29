@@ -11,6 +11,7 @@ import GHC.Generics (Par1(..), (:*:)(..), (:.:)(..))
 import qualified Control.Arrow as A
 import Data.Distributive
 import Data.Functor.Rep
+import Data.Function (on)
 import Data.Kind
 
 infixl 7 :*
@@ -61,12 +62,8 @@ data L :: (Type -> Type) -> (Type -> Type) -> (Type -> Type) where
   JoinL :: V3 f g h => h (L f g s) -> L (h :.: f) g s
   ForkL :: V3 f g h => h (L f g s) -> L f (h :.: g) s
 
-instance Eq s => Eq (L f g s) where
-  Scale s == Scale s'   = s == s'
-  (f :|# g) == (h :| k) = f == h && g == k
-  (f :&# g) == (h :& k) = f == h && g == k
-  ForkL ms  == Fork ms' = and $ liftR2 (==) ms ms'
-  JoinL ms  == Join ms' = and $ liftR2 (==) ms ms'
+instance (V f, ToRowMajor g, Eq (Rows f g s), Additive s) => Eq (L f g s) where
+  (==) = (==) `on` lToRowMaj
 
 unjoin2 :: (V3 f g h) => L (f :*: g) h s -> L f h s :* L g h s
 unjoin2 (p :|# q) = (p,q)
@@ -167,7 +164,7 @@ onesV = rowToL (pureRep one)
 
 -- Matrix transpose
 tr :: (V2 c r, Additive s) => L c r s -> L r c s
-tr = rowMajToL . distributeRep . lToRowMaj
+tr = rowMajToL . distribute . lToRowMaj
 
 infixr 9 .@
 (.@) :: (V3 f g h, Semiring s) => L g h s -> L f g s -> L f h s
