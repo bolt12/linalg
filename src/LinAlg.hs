@@ -241,7 +241,6 @@ instance (HasScaleV f, Semiring s) => Semiring (L f f s) where
 
 -- Hadamard-Schur product
 (.*) :: Semiring s => L f g s -> L f g s -> L f g s
-Zero .* Zero            = Zero
 Zero .* _               = Zero
 _ .* Zero               = Zero
 (Scale s) .* (Scale s') = Scale (s * s')
