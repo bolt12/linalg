@@ -36,10 +36,15 @@ default-extensions:
 
 ghc-options:
   -Wall
+  -Wcompat
+  -Widentities
+  -Wincomplete-uni-patterns
+  -Wredundant-constraints
 
 library:
   dependencies:
     - base
+    - ghc-prim  # GHC.Types (Constraint)
     - distributive
     - adjunctions
   other-modules: []
