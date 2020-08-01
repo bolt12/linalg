@@ -225,20 +225,12 @@ trT2 f = JoinL $ colToL . lToRow . trT f <$> unforkL idL
 -- Types for linear map transposition
 trT2 f :: L g f s
 
-                      f               :: L f g s
-                      idL             :: L (g :.: Par1) (g :.: Par1) s
-                      unforkL idL     :: g (L g Par1 s)
-                      fmap (trT f)    :: g (L g Par1 s) -> g (L g Par1 s) -> g (L f Par1 s)
-       fmap (trT f) $ unforkL idL     :: g (L f Par1 s)
-                _ $ trT f <$> unforkL :: L g f s
-
--- Types for n-ary join clause:
-
-     JoinL                     ms  :: L (k :.: f) (h :.: g) s
-                               ms  :: k (L f (h :.: g) s)
-                   unforkL <$> ms  :: k (h (L f g s))
-          distrib (unforkL <$> ms) :: h (k (L f g s))
-JoinL <$> distrib (unforkL <$> ms) :: h (L (k :.: f) g s)
+                      f                     :: L f g s
+                      idL                   :: L (g :.: Par1) (g :.: Par1) s
+                      unforkL idL           :: g (L g Par1 s)
+                      fmap (trT f)          :: g (L g Par1 s) -> g (L g Par1 s) -> g (L f Par1 s)
+       fmap (trT f) $ unforkL idL           :: g (L f Par1 s)
+JoinL $ colToL . lToRow . trT f <$> unforkL :: L g f s
 #endif
 
 -- Flattens the structure, probably inneficient, needs more constraints.
