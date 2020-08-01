@@ -62,8 +62,18 @@ data L :: (Type -> Type) -> (Type -> Type) -> (Type -> Type) where
   JoinL :: V3 f g h => h (L f g s) -> L (h :.: f) g s
   ForkL :: V3 f g h => h (L f g s) -> L f (h :.: g) s
 
+{- Denotationally correct implementation
+
 instance (V f, ToRowMajor g, Eq (Rows f g s), Additive s) => Eq (L f g s) where
   (==) = (==) `on` lToRowMaj
+-}
+
+instance Eq s => Eq (L f g s) where
+  Scale s == Scale s'   = s == s'
+  (f :|# g) == (h :| k) = f == h && g == k
+  (f :&# g) == (h :& k) = f == h && g == k
+  ForkL ms  == Fork ms' = and $ liftR2 (==) ms ms'
+  JoinL ms  == Join ms' = and $ liftR2 (==) ms ms'
 
 unjoin2 :: V3 f g h => L (f :*: g) h s -> L f h s :* L g h s
 unjoin2 (p :|# q) = (p,q)
@@ -163,8 +173,18 @@ onesV :: (ToScalar a, Representable a, Semiring s) => L a Par1 s
 onesV = rowToL (pureRep one)
 
 -- Matrix transpose
-tr :: V2 c r => L c r s -> L r c s
-tr = rowMajToL . distribute . lToRowMaj
+
+-- Flattens the structure, probably inneficient, needs more constraints.
+trR :: V2 c r => L c r s -> L r c s
+trR = rowMajToL . distribute . lToRowMaj
+
+-- More elegant, probably efficient version
+tr :: L c r s -> L r c s
+tr (Scale s)  = Scale s
+tr (f :|# g)  = tr f :&# tr g
+tr (f :&# g)  = tr f :|# tr g
+tr (ForkL ms) = JoinL (fmap tr ms)
+tr (JoinL ms) = ForkL (fmap tr ms)
 
 infixr 9 .@
 (.@) :: (V3 f g h, Semiring s) => L g h s -> L f g s -> L f h s
