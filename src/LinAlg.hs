@@ -43,6 +43,9 @@ class Additive a => Semiring a where
 sum :: (Foldable f, Additive a) => f a -> a
 sum = foldr (+) zero
 
+dot :: (Foldable f, Representable f, Semiring a) => f a -> f a -> a
+dot f g = sum (liftR2 (*) f g)
+
 -- | Vector addition
 infixl 6 +^
 (+^) :: (Representable f, Additive s) => f s -> f s -> f s
@@ -212,25 +215,25 @@ type DualSpace v s = L v Par1 s
 --
 -- @L f g s -> L (DualSpace g) (DualSpace f) s@
 --
-trT :: (V2 f g, Semiring s) => L f g s -> DualSpace g s -> DualSpace f s
-trT t g = g .@ t
+dual :: (V2 f g, Semiring s) => L f g s -> DualSpace g s -> DualSpace f s
+dual t g = g .@ t
 
 -- I'm not sure if this is correct, I saw that to transform a linear map
 -- into a matrix we had to use dual basis and etc... 
 -- Probably this is wrong!
-trT2 :: (V2 f g, Semiring s) => L f (g :.: Par1) s -> L (g :.: Par1) f s
-trT2 f = JoinL $ colToL . lToRow . trT f <$> unforkL idL
+dual2 :: (V2 f g, Semiring s) => L f (g :.: Par1) s -> L (g :.: Par1) f s
+dual2 f = JoinL $ colToL . lToRow . dual f <$> unforkL idL
 
 #if 0
 -- Types for linear map transposition
-trT2 f :: L g f s
+dual2 f :: L g f s
 
-                      f                     :: L f g s
-                      idL                   :: L (g :.: Par1) (g :.: Par1) s
-                      unforkL idL           :: g (L g Par1 s)
-                      fmap (trT f)          :: g (L g Par1 s) -> g (L g Par1 s) -> g (L f Par1 s)
-       fmap (trT f) $ unforkL idL           :: g (L f Par1 s)
-JoinL $ colToL . lToRow . trT f <$> unforkL :: L g f s
+                      f                      :: L f g s
+                      idL                    :: L (g :.: Par1) (g :.: Par1) s
+                      unforkL idL            :: g (L g Par1 s)
+                      fmap (dual f)          :: g (L g Par1 s) -> g (L g Par1 s) -> g (L f Par1 s)
+       fmap (dual f) $ unforkL idL           :: g (L f Par1 s)
+JoinL $ colToL . lToRow . dual f <$> unforkL :: L g f s
 #endif
 
 -- Flattens the structure, probably inneficient, needs more constraints.
@@ -254,6 +257,14 @@ m         .@ (p :|# q) = (m .@ p) :|# (m .@ q)     -- binary coproduct law
 ForkL ms' .@ m         = ForkL (fmap (.@ m) ms')   -- n-ary product law
 m'        .@ JoinL ms  = JoinL (fmap (m' .@) ms)   -- n-ary coproduct law
 JoinL ms' .@ ForkL ms  = sum (ms' .^ ms)           -- biproduct law
+
+-- Linear map application
+(@@) :: Semiring s => L f g s -> f s -> g s
+Scale s @@ gs             = (* s) <$> gs
+(p :&# q) @@ gs           = p @@ gs :*: q @@ gs
+(p :|# q) @@ (gs :*: gs') = liftR2 (+) (p @@ gs) (q @@ gs')
+ForkL ms @@ gs            = Comp1 (fmap (@@ gs) ms)
+JoinL ms @@ (Comp1 gs)    = foldr (liftR2 (+)) (pureRep zero) (liftR2 (@@) ms gs)
 
 (.^) :: (V3 f g h, Representable p, Semiring s)
      => p (L g h s) -> p (L f g s) -> p (L f h s)
