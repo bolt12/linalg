@@ -12,9 +12,7 @@ import Prelude hiding ((+),sum,(*),unzip)
 import GHC.Generics (Par1(..), (:*:)(..), (:.:)(..))
 import qualified Control.Arrow as A
 import Data.Distributive
-import Unsafe.Coerce
 import Data.Functor.Rep
-import Data.Function (on)
 import Data.Kind
 
 infixl 7 :*
@@ -424,13 +422,13 @@ type Cols a b s = a (b s)
 -- additional Comp1.
 
 -- Matrices and vector spaces are isomorphic, col-major version
-class ToColMajor b where
-  colMajToL :: V a => Cols a b s -> L a b s
-  lToColMaj :: V a => L a b s -> Cols a b s
+class ToColMajor a where
+  colMajToL :: V b => Cols a b s -> L a b s
+  lToColMaj :: V b => L a b s -> Cols a b s
 
 type ToColMajor2 a b = (ToColMajor a, ToColMajor b)
 
-pattern ColMajToL :: (V a, ToColMajor b) => Cols a b s -> L a b s
+pattern ColMajToL :: (V b, ToColMajor a) => Cols a b s -> L a b s
 pattern ColMajToL as <- (lToColMaj -> as) where ColMajToL = colMajToL
 {-# complete ColMajToL #-}
 
@@ -438,13 +436,13 @@ instance ToColMajor Par1 where
   colMajToL (Par1 a) = colToL a
   lToColMaj (ColToL a) = Par1 a
 
-instance V2 b b' => ToColMajor (b :*: b') where
+instance (V2 b b', ToColMajor2 b b') => ToColMajor (b :*: b') where
   colMajToL (as :*: as') = ColMajToL as :| ColMajToL as'
-  lToColMaj (ColMajToL as :& ColMajToL as') = as :*: as'
+  lToColMaj (ColMajToL as :| ColMajToL as') = as :*: as'
 
-instance V2 a b => ToColMajor (b :.: a) where
+instance (V2 a b, ToColMajor a) => ToColMajor (b :.: a) where
   colMajToL (Comp1 as) = Join (colMajToL <$> as)
-  lToColMaj (Fork m) = Comp1 (lToColMaj <$> m)
+  lToColMaj (Join m) = Comp1 (lToColMaj <$> m)
 
 -- The zero linear map
 zeroL :: (V2 a b, Additive s) => L a b s
