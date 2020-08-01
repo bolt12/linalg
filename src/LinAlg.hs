@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE UndecidableInstances #-} -- see below
 
 -- | Linear algebra after Fortran
@@ -10,6 +12,7 @@ import Prelude hiding ((+),sum,(*),unzip)
 import GHC.Generics (Par1(..), (:*:)(..), (:.:)(..))
 import qualified Control.Arrow as A
 import Data.Distributive
+import Unsafe.Coerce
 import Data.Functor.Rep
 import Data.Function (on)
 import Data.Kind
@@ -174,6 +177,72 @@ onesV = rowToL (pureRep one)
 
 -- Matrix transpose
 
+{-
+  Suppose @v@ and @w@ are vector spaces and @T@ is a linear transformation between them:
+
+  @T :: L v w s@
+
+  then:
+
+          T
+       V --> W
+        \    |
+         \   |
+   g . T  \  | g
+           \ |
+            \|
+             S
+
+  @g . T@ is called Tº(g) (@T@ transpose of @g@), so Tº interpreted in this way can be seen as having this type:
+
+  @Tº :: V* -> W*@, where @_ *@ is the dual space of a vector space.
+
+  @L v* w* s@ is a linear transformation.
+
+  How to translate this into actual code? See below
+
+-}
+
+-- The dual space of @v@ is the set of linear transformations of @v@ to @s@
+-- so a value (term) of this type is a linear transformation over @s@ aka
+-- @L v Par1 s@.
+type DualSpace v s = L v Par1 s
+
+-- Knowing this transpose of a linear transformation is just literally the
+-- definition above but structured in a way that makes sense (one could
+-- think that the type of @trT@ should be:
+--
+-- @L f g s -> L (DualSpace g) (DualSpace f) s@
+--
+trT :: (V2 f g, Semiring s) => L f g s -> DualSpace g s -> DualSpace f s
+trT t g = g .@ t
+
+-- I'm not sure if this is correct, I saw that to transform a linear map
+-- into a matrix we had to use dual basis and etc... 
+-- Probably this is wrong!
+trT2 :: (V2 f g, Semiring s) => L f (g :.: Par1) s -> L (g :.: Par1) f s
+trT2 f = JoinL $ colToL . lToRow . trT f <$> unforkL idL
+
+#if 0
+-- Types for linear map transposition
+trT2 f :: L g f s
+
+                      f               :: L f g s
+                      idL             :: L (g :.: Par1) (g :.: Par1) s
+                      unforkL idL     :: g (L g Par1 s)
+                      fmap (trT f)    :: g (L g Par1 s) -> g (L g Par1 s) -> g (L f Par1 s)
+       fmap (trT f) $ unforkL idL     :: g (L f Par1 s)
+                _ $ trT f <$> unforkL :: L g f s
+
+-- Types for n-ary join clause:
+
+     JoinL                     ms  :: L (k :.: f) (h :.: g) s
+                               ms  :: k (L f (h :.: g) s)
+                   unforkL <$> ms  :: k (h (L f g s))
+          distrib (unforkL <$> ms) :: h (k (L f g s))
+JoinL <$> distrib (unforkL <$> ms) :: h (L (k :.: f) g s)
+#endif
+
 -- Flattens the structure, probably inneficient, needs more constraints.
 trR :: V2 c r => L c r s -> L r c s
 trR = rowMajToL . distribute . lToRowMaj
@@ -283,25 +352,35 @@ khatri a b = (tr fstM .@ a) .* (tr sndM .@ b)
 -- Linear algebra duality isomorphism: a s =~ a s :-* s.
 class ToScalar a where
   rowToL :: a s -> L a Par1 s
+  colToL :: a s -> L Par1 a s
   lToRow :: L a Par1 s -> a s
+  lToCol :: L Par1 a s -> a s
 
 pattern RowToL :: ToScalar a => a s -> L a Par1 s
 pattern RowToL a <- (lToRow -> a) where RowToL = rowToL
 {-# complete RowToL #-}
 
-type ToScalar2 a b = (ToScalar a, ToScalar b)
+pattern ColToL :: ToScalar a => a s -> L Par1 a s
+pattern ColToL a <- (lToCol -> a) where ColToL = colToL
+{-# complete ColToL #-}
 
 instance ToScalar Par1 where
   rowToL (Par1 s) = Scale s
+  colToL (Par1 s) = Scale s
   lToRow (Scale s) = Par1 s
+  lToCol (Scale s) = Par1 s
 
 instance V2 a b => ToScalar (a :*: b) where
   rowToL (a :*: b) = RowToL a :| RowToL b
+  colToL (a :*: b) = ColToL a :& ColToL b
   lToRow (RowToL a :| RowToL b) = a :*: b
+  lToCol (ColToL a :& ColToL b) = a :*: b
 
 instance V2 a b => ToScalar (b :.: a) where
   rowToL (Comp1 as) = Join (rowToL <$> as)
+  colToL (Comp1 as) = Fork (colToL <$> as)
   lToRow (Join m) = Comp1 (lToRow <$> m)
+  lToCol (Fork m) = Comp1 (lToCol <$> m)
 
 --                  as  :: b (a s)
 --       rowToL <$> as  :: b (L a Par1 s)
@@ -337,7 +416,35 @@ instance V2 a b => ToRowMajor (b :.: a) where
   rowMajToL (Comp1 as) = Fork (rowMajToL <$> as)
   lToRowMaj (Fork m) = Comp1 (lToRowMaj <$> m)
 
--- TODO: Similarly for ToCol and ToColMajor
+-- Col-major matrix
+type Cols a b s = a (b s)
+
+-- TODO: maybe "type Rows a b = b :.: a". If so, the zeroL' definition will have
+-- one pureRep instead of two, but every ToRowMajor clause will get an
+-- additional Comp1.
+
+-- Matrices and vector spaces are isomorphic, col-major version
+class ToColMajor b where
+  colMajToL :: V a => Cols a b s -> L a b s
+  lToColMaj :: V a => L a b s -> Cols a b s
+
+type ToColMajor2 a b = (ToColMajor a, ToColMajor b)
+
+pattern ColMajToL :: (V a, ToColMajor b) => Cols a b s -> L a b s
+pattern ColMajToL as <- (lToColMaj -> as) where ColMajToL = colMajToL
+{-# complete ColMajToL #-}
+
+instance ToColMajor Par1 where
+  colMajToL (Par1 a) = colToL a
+  lToColMaj (ColToL a) = Par1 a
+
+instance V2 b b' => ToColMajor (b :*: b') where
+  colMajToL (as :*: as') = ColMajToL as :| ColMajToL as'
+  lToColMaj (ColMajToL as :& ColMajToL as') = as :*: as'
+
+instance V2 a b => ToColMajor (b :.: a) where
+  colMajToL (Comp1 as) = Join (colMajToL <$> as)
+  lToColMaj (Fork m) = Comp1 (lToColMaj <$> m)
 
 -- The zero linear map
 zeroL :: (V2 a b, Additive s) => L a b s
