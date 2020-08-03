@@ -207,7 +207,7 @@ onesV = rowToL (pureRep one)
 -- The dual space of @v@ is the set of linear transformations of @v@ to @s@
 -- so a value (term) of this type is a linear transformation over @s@ aka
 -- @L v Par1 s@.
-type DualSpace v s = L v Par1 s
+type Dual v s = L v Par1 s
 
 -- Knowing this transpose of a linear transformation is just literally the
 -- definition above but structured in a way that makes sense (one could
@@ -215,7 +215,7 @@ type DualSpace v s = L v Par1 s
 --
 -- @L f g s -> L (DualSpace g) (DualSpace f) s@
 --
-dual :: (V2 f g, Semiring s) => L f g s -> DualSpace g s -> DualSpace f s
+dual :: (V2 f g, Semiring s) => L f g s -> Dual g s -> Dual f s
 dual t g = g .@ t
 
 -- I'm not sure if this is correct, I saw that to transform a linear map
@@ -236,9 +236,32 @@ dual2 f :: L g f s
 JoinL $ colToL . lToRow . dual f <$> unforkL :: L g f s
 #endif
 
+{-
+Below are presented other alternatives that are not as consistent with the denotation as we'd like.
+This can have implications on the type signature too.
+
+`trR` takes advantage of the duality denotational isomorphism but unfortunately this iso is not representational
+and thus destroys the structure and can be bug prone in the future.
+
+`tr` is a more sensible implementation and can be proven to be correct by using `(@@)` given the following
+reasoning:
+
+Let `m : X ⊸ Y` be a linear map, `m @ x` stand for application of `m` to a vector `x`,
+and `x • y` stand for dot product of vectors `x` and `y`.
+Then, `transpose : (X ⊸ Y) -> (Y ⊸ X)` can be uniquely defined by the following property:
+
+  `∀ x : X, y : Y. (transpose m @ y) • x = y • (m @ x)`
+
+However this approach is not consistent with the denotation and there is still some discussion about the
+type of `(@@)`.
+
+---- Implementation ----
+
 -- Flattens the structure, probably inneficient, needs more constraints.
 trR :: V2 c r => L c r s -> L r c s
 trR = rowMajToL . distribute . lToRowMaj
+
+-}
 
 -- More elegant, probably efficient version
 tr :: L c r s -> L r c s
