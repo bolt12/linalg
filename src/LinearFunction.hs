@@ -120,6 +120,12 @@ dotIso = dot :<-> dot'
 
 -- TODO: basis vs oneHot
 
+transpose :: (Eq (Rep a), Semiring s, Representable a, Representable b, Foldable b) => L s a b -> L s b a
+transpose = L . (\g -> dot' . g . dot) . tr . unL
+  where
+    tr :: (a k -> b k) -> ((b k) -> k) -> ((a k) -> k)
+    tr f = \x -> x . f
+
 -- Convert vector to vector-to-scalar linear map ("dual vector")
 toScalar :: (Representable a, Foldable a, Semiring s) => a s -> L s a Par1
 toScalar a = L (Par1 . dot a)

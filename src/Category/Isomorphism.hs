@@ -1,22 +1,24 @@
 -- {-# OPTIONS_GHC -Wno-unused-imports #-} -- TEMP
 
 -- | Isomorphisms
-
 module Category.Isomorphism where
 
-import qualified GHC.Generics as G
-import GHC.Exts (Coercible,coerce)
 import Control.Newtype.Generics
+import GHC.Exts (Coercible, coerce)
+import qualified GHC.Generics as G
 
 import CatPrelude
 
 -------------------------------------------------------------------------------
+
 -- | Representation
+
 -------------------------------------------------------------------------------
 
 infix 0 :<->
+
 -- | Isomorphism
-data Iso k a b = (:<->) { isoFwd :: a `k` b, isoRev :: b `k` a }
+data Iso k a b = (:<->) {isoFwd :: a `k` b, isoRev :: b `k` a}
 
 -- | Inverse isomorphism
 inv :: Iso k a b -> Iso k b a
@@ -30,7 +32,9 @@ infix 0 <->
 type (<->) = Iso (->)
 
 -------------------------------------------------------------------------------
+
 -- | As a category
+
 -------------------------------------------------------------------------------
 
 instance Category k => Category (Iso k) where
@@ -67,19 +71,23 @@ instance Closed e k => Closed e (Iso k) where
 -- TODO: n-ary products and coproducts
 
 -------------------------------------------------------------------------------
+
 -- | Utilities
+
 -------------------------------------------------------------------------------
 
 -- | Apply one isomorphism via another
 via :: (Category k, Obj2 k a b) => Iso k b b -> Iso k a b -> Iso k a a
 (g :<-> g') `via` (ab :<-> ba) = ba . g . ab :<-> ba . g' . ab
 
-join2Iso :: (Cocartesian co k, Obj3 k a c d)
-         => (c `k` a) :* (d `k` a) <-> ((c `co` d) `k` a)
+join2Iso ::
+  (Cocartesian co k, Obj3 k a c d) =>
+  (c `k` a) :* (d `k` a) <-> ((c `co` d) `k` a)
 join2Iso = join2 :<-> unjoin2
 
-fork2Iso :: (Cartesian p k, Obj3 k a c d)
-         => (a `k` c) :* (a `k` d) <-> (a `k` (c `p` d))
+fork2Iso ::
+  (Cartesian p k, Obj3 k a c d) =>
+  (a `k` c) :* (a `k` d) <-> (a `k` (c `p` d))
 fork2Iso = fork2 :<-> unfork2
 
 joinIso :: (CocartesianR r co k, Obj2 k a b) => r (a `k` b) <-> co r a `k` b
@@ -108,9 +116,10 @@ generic1Iso = G.from1 :<-> G.to1
 
 -- | Natural isomorphism
 infix 0 <-->
+
 type f <--> g = forall a. f a <-> g a
 
-fmapIso :: Functor f => a <-> b -> f a <-> f b
+fmapIso :: Functor f => (a <-> b) -> (f a <-> f b)
 fmapIso (f :<-> g) = (fmap f :<-> fmap g)
 
 flipIso :: (a -> b -> c) <-> (b -> a -> c)
@@ -120,5 +129,5 @@ distributeIso :: (Representable f, Representable g) => f (g a) <-> g (f a)
 -- distributeIso = inv repIso . fmapIso (inv repIso) . flipIso . fmapIso repIso . repIso
 distributeIso = distribute :<-> distribute
 
-collectIso :: (Representable f, Representable g) => f a <-> b -> f (g a) <-> g b
+collectIso :: (Representable f, Representable g) => (f a <-> b) -> (f (g a) <-> g b)
 collectIso f = fmapIso f . distributeIso
