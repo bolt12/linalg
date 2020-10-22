@@ -121,23 +121,43 @@ dotIso = dot :<-> dot'
 -- TODO: basis vs oneHot
 
 {-
-`tr` is a sensible implementation and can be proven to be correct by using `(@@)` given the following
-reasoning:
+`transpose` is a sensible implementation and is inspired by the following reasoning:
 
 Let `m : X ⊸ Y` be a linear map, `m @ x` stand for application of `m` to a vector `x`,
 and `x • y` stand for dot product of vectors `x` and `y`.
 Then, `transpose : (X ⊸ Y) -> (Y ⊸ X)` can be uniquely defined by the following property:
 
   `∀ x : X, y : Y. (transpose m @ y) • x = y • (m @ x)`
-  `∀ x : X, y : Y. dot (transpose m @ y) x = dot y (m @ x)`
-  `∀ x : X, y : Y. dot (transpose m @ y) x = dot y (m @ x)`
 
-However this approach is not consistent with the denotation and there is still some discussion about the
-type of `(@@)`.
+So, if:
+  `transpose = L . (\g -> dot' . g . dot) . tr . unL`
+
+and:
+  (L l) @ x = l x
+
+then (handling the newtype wrapping/unwrapping implicitly):
+
+  ```
+  ∀ x : X, y : Y. (transpose m @ y) • x = y • (m @ x)
+
+  dot (transpose m @ y) x = dot y (m @ x)
+    === < def. transpose >
+  dot ((dot' . tr m . dot) @ y) x
+    === < function application >
+  dot (dot' (tr m (dot y))) x
+    === < point-free (get rid of x) >
+  dot (dot' (tr m (dot y)))
+    <=== < dot . dot' = id >
+  tr m (dot y)
+    <=== < def. tr >
+  (dot y) . m
+    <=== < introduce x; function application >
+  dot y (m @ x)
+  ```
 
 -}
 transpose :: (Eq (Rep a), Semiring s, Representable a, Representable b, Foldable b) => L s a b -> L s b a
-transpose = L . (\g -> dot' . g . dot) . tr . unL
+transpose (L m) = L $ dot' . tr m . dot
   where
     tr :: (a k -> b k) -> ((b k) -> k) -> ((a k) -> k)
     tr f = \x -> x . f
