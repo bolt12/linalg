@@ -120,6 +120,22 @@ dotIso = dot :<-> dot'
 
 -- TODO: basis vs oneHot
 
+{-
+`tr` is a sensible implementation and can be proven to be correct by using `(@@)` given the following
+reasoning:
+
+Let `m : X ⊸ Y` be a linear map, `m @ x` stand for application of `m` to a vector `x`,
+and `x • y` stand for dot product of vectors `x` and `y`.
+Then, `transpose : (X ⊸ Y) -> (Y ⊸ X)` can be uniquely defined by the following property:
+
+  `∀ x : X, y : Y. (transpose m @ y) • x = y • (m @ x)`
+  `∀ x : X, y : Y. dot (transpose m @ y) x = dot y (m @ x)`
+  `∀ x : X, y : Y. dot (transpose m @ y) x = dot y (m @ x)`
+
+However this approach is not consistent with the denotation and there is still some discussion about the
+type of `(@@)`.
+
+-}
 transpose :: (Eq (Rep a), Semiring s, Representable a, Representable b, Foldable b) => L s a b -> L s b a
 transpose = L . (\g -> dot' . g . dot) . tr . unL
   where
