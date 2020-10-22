@@ -130,10 +130,9 @@ Then, `transpose : (X ⊸ Y) -> (Y ⊸ X)` can be uniquely defined by the follow
   `∀ x : X, y : Y. (transpose m @ y) • x = y • (m @ x)`
 
 So, if:
-  `transpose = L . (\g -> dot' . g . dot) . tr . unL`
-
-and:
-  (L l) @ x = l x
+  - `transpose (L m) = L $ dot' . tr m . dot`
+  - tr = flip (.)
+  - (L l) @ x = l x
 
 then (handling the newtype wrapping/unwrapping implicitly):
 
